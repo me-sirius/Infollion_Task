@@ -67,9 +67,9 @@ function CellImpl({
       role="gridcell"
       aria-label={id}
       className={[
-        'h-9 border-r border-b border-slate-200 px-2 flex items-center text-sm select-none transition-colors duration-75',
+        'h-8 border-r border-b border-slate-200 px-2 flex items-center text-sm select-none transition-colors duration-75',
         isSelected
-          ? 'ring-1 ring-inset ring-blue-500 bg-blue-50/30 border-l-2 border-l-blue-500'
+          ? 'ring-2 ring-inset ring-blue-500 bg-blue-50/30'
           : isFormula && !isEditing
             ? 'bg-indigo-50/20 hover:bg-indigo-50/50 cursor-pointer'
             : 'bg-white hover:bg-slate-50 cursor-pointer',

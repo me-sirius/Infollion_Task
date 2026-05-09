@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
 
-// useUndoableState: small undo/redo stack on top of useState.
+// undoRedoState: small undo/redo stack on top of useState.
 // API: { state, set, undo, redo, canUndo, canRedo, reset }.
-export function useUndoableState(initial) {
+export function undoRedo(initial) {
   const [state, setState] = useState(initial);
   // History and index live in refs so callbacks can mutate them, but we mirror
   // them as state so canUndo/canRedo can be safely read during render.

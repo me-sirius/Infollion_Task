@@ -8,7 +8,7 @@ import {
   MAX_COLS,
   MAX_ROWS,
 } from '../utils/formulaEngine';
-import { useUndoableState } from '../hooks/useUndoableState';
+import { undoRedo } from '../hooks/undoRedo';
 import { Cell } from './Cell';
 
 export function Spreadsheet() {
@@ -20,7 +20,7 @@ export function Spreadsheet() {
     canUndo,
     canRedo,
     reset,
-  } = useUndoableState({});
+  } = undoRedo({});
 
   const [selected, setSelected] = useState('A1');
   const [nameBoxValue, setNameBoxValue] = useState('A1');
@@ -177,48 +177,44 @@ export function Spreadsheet() {
   const visibleCols = COL_LABELS.slice(0, gridCols);
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-6 flex flex-col" style={{ height: 'min(90vh, 700px)' }}>
-      <header className="pb-2 flex items-baseline gap-3">
-        <h1 className="text-lg font-bold text-slate-800 tracking-tight">Spreadsheet</h1>
-        <p className="text-xs text-slate-400">
-          Formulas start with <code className="px-1 py-0.5 bg-slate-100 rounded font-mono text-[11px] text-slate-600">=</code>
-          {' '}e.g. <code className="px-1 py-0.5 bg-slate-100 rounded font-mono text-[11px] text-slate-600">=A1+B2</code>
-        </p>
-      </header>
-
-      <div className="flex flex-wrap items-center gap-2 px-4 py-1.5 bg-white border-b border-slate-200">
-        <input
-          aria-label="Name box"
-          className="w-16 text-center border border-slate-200 rounded px-1 py-1 text-xs font-mono font-semibold text-slate-700 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white cursor-pointer"
-          value={nameBoxValue}
-          onChange={(e) => setNameBoxValue(e.target.value.toUpperCase())}
-          onFocus={(e) => e.target.select()}
-          onBlur={() => setNameBoxValue(selected)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              const v = e.currentTarget.value.toUpperCase();
-              if (isValidCellId(v)) {
-                if (draftRef.current) {
-                  commitValue(draftRef.current.id, draftRef.current.value);
+    <div className="w-full max-w-6xl mx-auto flex flex-col" style={{ height: 'min(90vh, 720px)', fontFamily: "'Inter', system-ui, sans-serif" }}>
+      {/* Toolbar */}
+      <div className="flex items-center gap-0 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        {/* Name box */}
+        <div className="flex items-center border-r border-slate-200 px-2 py-1.5 gap-1.5 shrink-0">
+          <input
+            aria-label="Name box"
+            className="w-14 text-center rounded px-1 py-1 text-xs font-mono font-semibold text-slate-700 bg-slate-50 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:bg-white cursor-pointer transition-colors"
+            value={nameBoxValue}
+            onChange={(e) => setNameBoxValue(e.target.value.toUpperCase())}
+            onFocus={(e) => e.target.select()}
+            onBlur={() => setNameBoxValue(selected)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                const v = e.currentTarget.value.toUpperCase();
+                if (isValidCellId(v)) {
+                  if (draftRef.current) {
+                    commitValue(draftRef.current.id, draftRef.current.value);
+                  }
+                  setSelected(v);
+                  setDraft(null);
                 }
-                setSelected(v);
-                setDraft(null);
+                setNameBoxValue(selected);
+                e.currentTarget.blur();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setNameBoxValue(selected);
+                e.currentTarget.blur();
               }
-              setNameBoxValue(selected);
-              e.currentTarget.blur();
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
-              setNameBoxValue(selected);
-              e.currentTarget.blur();
-            }
-          }}
-        />
-        <span className="text-slate-300">|</span>
-        <span className="text-[10px] uppercase tracking-widest text-slate-400 font-medium px-1">fx</span>
+            }}
+          />
+          <span className="text-[10px] font-semibold tracking-widest text-slate-400 select-none">fx</span>
+        </div>
+        {/* Formula bar */}
         <input
           aria-label="Formula bar"
-          className="flex-1 min-w-[12rem] border border-slate-200 rounded-md px-3 py-1.5 text-sm font-mono bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+          className="flex-1 px-3 py-2 text-sm font-mono bg-transparent focus:outline-none text-slate-700 placeholder-slate-300"
           value={selectedDraftValue}
           placeholder="Enter value or =formula"
           onChange={(e) => setDraft({ id: selected, value: e.target.value })}
@@ -238,10 +234,11 @@ export function Spreadsheet() {
             }
           }}
         />
-        <div className="flex items-center gap-1.5 ml-auto">
+        {/* Action buttons */}
+        <div className="flex items-center border-l border-slate-200 px-2 py-1.5 gap-1 shrink-0">
           <button
             type="button"
-            className="px-2.5 py-1 text-xs font-medium border border-slate-200 rounded-md bg-white hover:bg-slate-50 active:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            className="px-2.5 py-1 text-xs font-medium rounded text-slate-500 hover:bg-slate-100 active:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
             title="Undo (Ctrl+Z)"
             onClick={undo}
             disabled={!canUndo}
@@ -250,16 +247,17 @@ export function Spreadsheet() {
           </button>
           <button
             type="button"
-            className="px-2.5 py-1 text-xs font-medium border border-slate-200 rounded-md bg-white hover:bg-slate-50 active:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            className="px-2.5 py-1 text-xs font-medium rounded text-slate-500 hover:bg-slate-100 active:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
             title="Redo (Ctrl+Y)"
             onClick={redo}
             disabled={!canRedo}
           >
             ↷ Redo
           </button>
+          <div className="w-px h-4 bg-slate-200 mx-0.5" />
           <button
             type="button"
-            className="px-2.5 py-1 text-xs font-medium border border-red-200 rounded-md bg-white hover:bg-red-50 active:bg-red-100 text-red-600 cursor-pointer transition-colors"
+            className="px-2.5 py-1 text-xs font-medium rounded text-red-400 hover:bg-red-50 hover:text-red-500 active:bg-red-100 cursor-pointer transition-colors"
             title="Clear all cells"
             onClick={() => reset({})}
           >
@@ -268,85 +266,117 @@ export function Spreadsheet() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-auto border border-slate-200 rounded-lg bg-white shadow-sm">
-        <div
-          className="grid"
-          style={{
-            gridTemplateColumns: `3rem repeat(${gridCols}, minmax(5rem, 1fr))`,
-          }}
-        >
-          <div className="h-9 bg-slate-50 border-r border-b border-slate-200 sticky top-0 left-0 z-20" />
-          {visibleCols.map((label) => (
+      {/* Grid area */}
+      <div className="mt-3 flex-1 min-h-0 flex flex-col border border-slate-200 rounded-xl bg-white overflow-hidden shadow-sm">
+        {/* Scroll area + +Col button side by side */}
+        <div className="flex-1 min-h-0 flex">
+          <div className="flex-1 min-h-0 overflow-auto">
             <div
-              key={`h-${label}`}
-              className="h-9 bg-slate-50 border-r border-b border-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 uppercase tracking-wider sticky top-0 z-10"
+              className="grid"
+              style={{
+                gridTemplateColumns: `3rem repeat(${gridCols}, minmax(5rem, 1fr))`,
+              }}
             >
-              {label}
+              {/* Top-left corner */}
+              <div className="h-8 bg-slate-50 border-r border-b border-slate-200 sticky top-0 left-0 z-20" />
+              {/* Column headers */}
+              {visibleCols.map((label) => (
+                <div
+                  key={`h-${label}`}
+                  className="h-8 bg-slate-50 border-r border-b border-slate-200 flex items-center justify-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider sticky top-0 z-10"
+                >
+                  {label}
+                </div>
+              ))}
+
+              {/* Data rows */}
+              {Array.from({ length: gridRows }).map((_, r) => (
+                <RowFragment
+                  key={`row-${r}`}
+                  rowIndex={r}
+                  gridCols={gridCols}
+                  cells={cells}
+                  draft={draft}
+                  computed={computed}
+                  selected={selected}
+                  editing={editing}
+                  onSelect={handleSelect}
+                  onStartEdit={handleStartEdit}
+                  onCommit={handleCommit}
+                  onCancel={handleCancel}
+                  onMove={moveSelection}
+                  onDraftChange={handleDraftChange}
+                />
+              ))}
+
+              {/* +Row button — in the row-number column, after last row */}
+              <div className="h-8 bg-slate-50 border-r border-t border-slate-200 sticky left-0 z-10 flex items-center justify-center">
+                <button
+                  type="button"
+                  className={[
+                    'w-6 h-6 rounded flex items-center justify-center text-sm font-semibold transition-all duration-150',
+                    gridRows >= MAX_ROWS
+                      ? 'text-slate-300 cursor-not-allowed'
+                      : 'text-slate-400 hover:bg-slate-200 hover:text-slate-600 active:bg-slate-300 cursor-pointer',
+                  ].join(' ')}
+                  onClick={() => { if (gridRows < MAX_ROWS) setGridRows((r) => Math.min(MAX_ROWS, r + 5)); }}
+                  disabled={gridRows >= MAX_ROWS}
+                  title="Add 5 rows"
+                >
+                  +
+                </button>
+              </div>
+              {/* fill remaining cells in +Row row */}
+              {visibleCols.map((label) => (
+                <div key={`addrow-${label}`} className="h-8 border-t border-slate-100" />
+              ))}
             </div>
-          ))}
-          {Array.from({ length: gridRows }).map((_, r) => (
-            <RowFragment
-              key={`row-${r}`}
-              rowIndex={r}
-              gridCols={gridCols}
-              cells={cells}
-              draft={draft}
-              computed={computed}
-              selected={selected}
-              editing={editing}
-              onSelect={handleSelect}
-              onStartEdit={handleStartEdit}
-              onCommit={handleCommit}
-              onCancel={handleCancel}
-              onMove={moveSelection}
-              onDraftChange={handleDraftChange}
-            />
-          ))}
+          </div>
+
+          {/* +Col button — outside the scroll area, pinned to the right of the header only */}
+          <div className="shrink-0 w-8 flex flex-col">
+            <div className="h-8 bg-slate-50 border-l border-b border-slate-200 flex items-center justify-center">
+              <button
+                type="button"
+                className={[
+                  'w-6 h-6 rounded flex flex-col items-center justify-center text-[10px] font-semibold leading-[10px] transition-all duration-150',
+                  gridCols >= MAX_COLS
+                    ? 'text-slate-300 cursor-not-allowed'
+                    : 'text-slate-400 hover:bg-slate-200 hover:text-slate-600 active:bg-slate-300 cursor-pointer',
+                ].join(' ')}
+                onClick={() => { if (gridCols < MAX_COLS) setGridCols((c) => c + 1); }}
+                disabled={gridCols >= MAX_COLS}
+                title="Add column"
+              >
+                <span className="text-sm leading-[12px]">+</span>
+              </button>
+            </div>
+            {/* No cells below — intentionally empty */}
+          </div>
+        </div>
+
+        {/* Status bar */}
+        <div className="px-4 py-1.5 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
+          <span>
+            {selectedHasError
+              ? <span className="text-red-400 font-medium">⚠ {selected}: {selectedDisplay}</span>
+              : <span>Arrows · Enter · Delete · Ctrl+Z/Y</span>}
+          </span>
+          {(() => {
+            const nums = Object.values(computed.values).filter(v => typeof v === 'number');
+            if (nums.length === 0) return null;
+            const sum = nums.reduce((a, b) => a + b, 0);
+            const avg = sum / nums.length;
+            return (
+              <span className="flex gap-4 font-mono">
+                <span>SUM <strong className="text-slate-600">{Number.isInteger(sum) ? sum : sum.toFixed(2)}</strong></span>
+                <span>AVG <strong className="text-slate-600">{avg.toFixed(2)}</strong></span>
+                <span>COUNT <strong className="text-slate-600">{nums.length}</strong></span>
+              </span>
+            );
+          })()}
         </div>
       </div>
-
-      <div className="flex items-center gap-2 mt-2">
-        <button
-          type="button"
-          className="px-2 py-1 text-xs font-medium border border-slate-200 rounded-md bg-white hover:bg-slate-50 active:bg-slate-100 cursor-pointer transition-colors disabled:opacity-40"
-          onClick={() => setGridCols((c) => Math.min(MAX_COLS, c + 1))}
-          disabled={gridCols >= MAX_COLS}
-          title="Add column"
-        >
-          + Column
-        </button>
-        <button
-          type="button"
-          className="px-2 py-1 text-xs font-medium border border-slate-200 rounded-md bg-white hover:bg-slate-50 active:bg-slate-100 cursor-pointer transition-colors disabled:opacity-40"
-          onClick={() => setGridRows((r) => Math.min(MAX_ROWS, r + 5))}
-          disabled={gridRows >= MAX_ROWS}
-          title="Add 5 rows"
-        >
-          + 5 Rows
-        </button>
-        <span className="ml-auto text-[11px] text-slate-400 font-mono">{gridCols}×{gridRows}</span>
-      </div>
-
-      <footer className="px-4 py-1.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-[11px] text-slate-500">
-        <span>
-          {selectedHasError
-            ? <span className="text-red-500 font-medium">⚠ {selected}: {selectedDisplay}</span>
-            : <span className="text-slate-400">Arrows · Enter · Delete · Ctrl+Z/Y</span>}
-        </span>
-        {(() => {
-          const nums = Object.values(computed.values).filter(v => typeof v === 'number');
-          if (nums.length === 0) return null;
-          const sum = nums.reduce((a, b) => a + b, 0);
-          const avg = sum / nums.length;
-          return (
-            <span className="flex gap-4 font-mono">
-              <span>SUM: <strong className="text-slate-700">{Number.isInteger(sum) ? sum : sum.toFixed(2)}</strong></span>
-              <span>AVG: <strong className="text-slate-700">{avg.toFixed(2)}</strong></span>
-              <span>COUNT: <strong className="text-slate-700">{nums.length}</strong></span>
-            </span>
-          );
-        })()}
-      </footer>
     </div>
   );
 }
@@ -368,7 +398,7 @@ function RowFragment({
 }) {
   return (
     <>
-      <div className="h-9 bg-slate-50 border-r border-b border-slate-200 flex items-center justify-center text-xs font-bold text-slate-400 sticky left-0 z-10">
+      <div className="h-8 bg-slate-50 border-r border-b border-slate-200 flex items-center justify-center text-[11px] font-medium text-slate-500 sticky left-0 z-10">
         {rowIndex + 1}
       </div>
       {COL_LABELS.slice(0, gridCols).map((_, c) => {
@@ -397,6 +427,7 @@ function RowFragment({
           />
         );
       })}
+
     </>
   );
 }
